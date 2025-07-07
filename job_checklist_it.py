@@ -68,7 +68,7 @@ if st.sidebar.button("🔁 Reset Progress"):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=2)
     st.sidebar.success("Progress reset. Refresh the page.")
-    st.experimental_rerun()
+    st.rerun()
 
 # --- Add a new job ---
 st.subheader("➕ Add a New Job")
@@ -81,7 +81,11 @@ with st.form("new_job_form", clear_on_submit=True):
             if new_title in data["jobs"]:
                 st.warning("Job already exists.")
             else:
-                data["jobs"][new_title] = new_link
+                # Add to beginning of dict
+                updated_jobs = {new_title: new_link}
+                updated_jobs.update(data["jobs"])
+                data["jobs"] = updated_jobs
+
                 data["details"][new_title] = {
                     "status": "Not Applied",
                     "notes": "",
@@ -90,19 +94,24 @@ with st.form("new_job_form", clear_on_submit=True):
                 with open(DATA_FILE, "w") as f:
                     json.dump(data, f, indent=2)
                 st.success(f"Added: {new_title}")
-                st.experimental_rerun()
+                st.rerun()
         else:
             st.warning("Please enter both a job title and a link.")
 
-# --- Display job applications ---
+# --- Filter by status ---
 st.subheader("📋 Your Job Applications")
+filter_status = st.selectbox("🔍 Filter by Status", ["All"] + status_options)
 
-for job, link in data["jobs"].items():
+# --- Display job applications ---
+for job, link in list(data["jobs"].items()):
     details = data["details"].get(job, {
         "status": "Not Applied",
         "notes": "",
         "date": datetime.today().strftime("%Y-%m-%d")
     })
+
+    if filter_status != "All" and details["status"] != filter_status:
+        continue
 
     # Parse date safely
     try:
@@ -143,3 +152,4 @@ with open(DATA_FILE, "w") as f:
     json.dump(data, f, indent=2)
 
 st.success("✅ Progress saved locally.")
+
