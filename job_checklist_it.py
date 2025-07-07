@@ -1,11 +1,24 @@
-import streamlit as st 
+import streamlit as st
+import json
+import os
+from datetime import date
 
-st.title("Job Application Tracker")
+st.set_page_config(page_title="Job Application Tracker", layout="wide")
+st.title("📋 Job Application Tracker")
 
-# List of jobs with their application links
+# --- File to store state ---
+DATA_FILE = "job_tracker_data.json"
+
+# --- Load data ---
+if os.path.exists(DATA_FILE):
+    with open(DATA_FILE, "r") as f:
+        job_data = json.load(f)
+else:
+    job_data = {}
+
+# --- Jobs list ---
 jobs = {
     "Trainee Data analyst": "https://www.adzuna.co.uk/jobs/details/4986013048?utm_campaign=google_jobs_apply&utm_source=google_jobs_apply&utm_medium=organic",
-    "Data Analyst, Deloitte": "https://gb.bebee.com/job/67460146b4e585bf0c2da19583ecc6c7?utm_campaign=google_jobs_apply&utm_source=google_jobs_apply&utm_medium=organic",
     "Graduate Scheme - HO Digital": "https://www.civilservicejobs.service.gov.uk/csr/index.cgi?SID=b3duZXJ0eXBlPWZhaXImam9ibGlzdF92aWV3X3ZhYz0xOTU4MTIyJnVzZXJzZWFyY2hjb250ZXh0PTEzODQzNTMwMiZzZWFyY2hzb3J0PXNjb3JlJm93bmVyPTUwNzAwMDAmcGFnZWFjdGlvbj12aWV3dmFjYnlqb2JsaXN0JnNlYXJjaHBhZ2U9MSZwYWdlY2xhc3M9Sm9icw==",
     "IT Support Apprentice": "https://www.linkedin.com/jobs/view/4255199263",
     "Data Center Technician, Microsoft": "https://jobs.careers.microsoft.com/us/en/job/1829145/Data-Center-Technician?jobsource=linkedin/jobs/6952538?gh_src=00bdd2ae1",
@@ -20,13 +33,49 @@ jobs = {
     "AI Analyst": "https://www.linkedin.com/jobs/view/4250266675"   
 }
 
-st.write("Here are the jobs I'm planning to apply for. Click on the job title to view the application link.")
+status_colors = {
+    "Not Applied": "white",
+    "Applied": "#e6f7ff",
+    "Interview": "#fffbe6",
+    "Rejected": "#ffe6e6",
+    "Offered": "#e6ffe6"
+}
+
+status_options = list(status_colors.keys())
+filter_option = st.selectbox("Filter jobs by status:", ["All"] + status_options)
 
 for job, link in jobs.items():
-    # Display each job title as a clickable link with a checkbox to mark as applied
-    checked = st.checkbox(f"[{job}]({link})")
-    if checked:
-        st.success(f"You have marked {job} as applied.")
-    else:
-        st.info(f"Click the checkbox to mark {job} as applied.")
+    data = job_data.get(job, {
+        "applied": False,
+        "notes": "",
+        "date": "",
+        "status": "Not Applied"
+    })
+
+    if filter_option != "All" and data["status"] != filter_option:
+        continue
+
+    bg_color = status_colors.get(data["status"], "white")
+    display_job = f"~~{job}~~" if data["status"] == "Rejected" else job
+
+    st.markdown(f"<div style='background-color:{bg_color}; padding:10px; border-radius:10px;'>", unsafe_allow_html=True)
+    with st.expander(f"🔗 [{display_job}]({link})"):
+        applied = st.checkbox("Mark as applied", key=job, value=data["applied"])
+        status = st.selectbox("Application status", status_options, index=status_options.index(data["status"]), key=f"{job}-status")
+        notes = st.text_area("Notes", value=data["notes"], key=f"{job}-notes")
+        app_date = st.date_input("Application date", key=f"{job}-date", value=date.fromisoformat(data["date"]) if data["date"] else date.today())
+
+        job_data[job] = {
+            "applied": applied,
+            "notes": notes,
+            "date": app_date.isoformat(),
+            "status": status
+        }
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# --- Save to file ---
+with open(DATA_FILE, "w") as f:
+    json.dump(job_data, f, indent=2)
+
+st.success("Progress saved locally. Relaunch the app to continue where you left off.")
 
